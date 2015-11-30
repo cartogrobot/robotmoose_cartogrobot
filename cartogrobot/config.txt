@@ -4,5 +4,5 @@ superstar=http://localhost:8081/
 #marker=
 #trim=1.0
 #debug=
-#delay_ms=50
+#delay_ms=1000
 #sim=false
