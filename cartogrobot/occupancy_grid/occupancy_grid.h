@@ -27,6 +27,8 @@ class OccupancyGrid
 		
 		Probability inverseRangeSensorModel(std::size_t x, std::size_t y,
 			const MapLocation & xt, const MapLocation & zt);
+			
+		bool inSquare(double x, double y, std::size_t x, std:: size_t y);
 	
 	private:
 		Probability _l0;

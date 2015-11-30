@@ -72,5 +72,12 @@ void OccupancyGrid::rangeSensorUpdate(const MapLocation & xt, const MapLocation 
 Probability OccupancyGrid::inverseRangeSensorModel(std::size_t x, std::size_t y,
 	const MapLocatin & xt, const MapLocation & zt)
 {
-	
+	if(inSquare(zt.getX(), zt.getY(), x, y))
+	{
+		return _lOcc;
+	}
+	else
+	{
+		return _lFree;
+	}
 }
