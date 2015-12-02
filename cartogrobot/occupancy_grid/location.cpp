@@ -7,7 +7,7 @@
  * Robot location representation
 */
 
-#include "localization_point_normal.h"
+#include "location.h"
 
 
 /* 
@@ -22,24 +22,24 @@ MapLocation::MapLocation(): _x(0.0), _y(0.0), _angle(0.0) {}
 MapLocation::MapLocation(double x, double y, const Angle & angle): _x(x), _y(y), _angle(angle) {}
 
 // Constructs MapPoint from local polar coordinates and MapPoint for their origin
-MapLocation::MapLocation(const PolarCoordinates & polarCoords){
+MapLocation::MapLocation(double r, const Angle & angle){
     // Correct for robot orientation
-    _angle = polarCoords._angle;
+    _angle = angle;
     
     // Convert to cartesian and add vectors
-    _x = std::cos(_angle) * polarCoords._r;
-    _y = std::sin(_angle) * polarCoords._r;
+    _x = std::cos(_angle) * r;
+    _y = std::sin(_angle) * r;
 }
 
 
 // Constructs MapPoint from local polar coordinates and MapPoint for their origin
-MapLocation::MapLocation(const PolarCoordinates & polarCoords, const MapLocation & location){
+MapLocation::MapLocation(const MapLocation & location, double r, const Angle & angle){
     // Correct for robot orientation
-    _angle = polarCoords._angle + location._angle;
+    _angle = angle + location._angle;
     
     // Convert to cartesian and add vectors
-    _x = std::cos(_angle) * polarCoords._r + location._x;
-    _y = std::sin(_angle) * polarCoords._r + location._y;
+    _x = std::cos(_angle) * r + location._x;
+    _y = std::sin(_angle) * r + location._y;
 }
 
 // Self modifying addition

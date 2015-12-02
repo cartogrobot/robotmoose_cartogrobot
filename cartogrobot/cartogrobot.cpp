@@ -48,6 +48,11 @@
 #include "../include/location_binary.h" /* for computer vision marker I/O */
 #include "../include/osl/vec4.h" /* for vec3, used for arithmetic */
 
+#include "occupancy_grid/occupancy_grid.h"
+#include "occupancy_grid/occupancy_grid.cpp"
+#include "occupancy_grid/location.cpp"
+#include "occupancy_grid/angle.cpp"
+
 #ifndef M_PI
 # define M_PI 3.1415926535897
 #endif
@@ -158,10 +163,10 @@ void slam_backend::do_network()
 	std::string read_path=robotName+"/sensors";
 	//std::string send_path=robotName+"/pilot,"+robotName+"/config";
 	//std::string request=send_path+"?set="+send_json+"&get="+read_path;
-	std::string read_json=superstar_send_get("/superstar/"+read_path);	//+request);
+	std::string read_json=superstar_send_get("/superstar/"+read_path+"?get");	//+request);
 
 	std::cout<<"Incoming pilot commands: "<<read_json<<"\n";
-	//read_network(read_json);
+	read_network(read_json);
 
 	double elapsed=time_in_seconds()-start;
 	double per=elapsed;
@@ -169,82 +174,36 @@ void slam_backend::do_network()
 	std::cout.flush();
 }
 
+OccupancyGrid map;
+MapLocation robotLocation;
+
 /** Read this pilot data from superstar, and store into ourselves */
 void slam_backend::read_network(const std::string &read_json)
 {
-	/*try {
-		json::Array return_json=json::Deserialize(read_json);
-
-		if(return_json.size()!=2)
-			throw std::runtime_error("Invalid json received (expected 2 arguments) - "+read_json);
-
-		json::Value pilot=return_json[0];
-		json::Object config=return_json[1];
-
-		if(config["configs"].GetType()==json::ArrayVal&&config["configs"].GetType()==json::ArrayVal&&config["counter"].IsNumeric())
-			read_config("",config["configs"].ToArray(),config["counter"].ToInt());
-
-		// Pull registered commands from JSON
-		for (unsigned int i=0;i< commands.size();i++) commands[i]->do_command(pilot);
-
-#ifndef	_WIN32
-		//  On UNIX systems, run shell scripts from script/ directory
-		static std::string last_cmd_arg="";
-		static bool startup=true;
-		std::string cmd_arg="";
-		if(pilot["cmd"].GetType()==json::ObjectVal)
+	try {
+		json::Object return_json=json::Deserialize(read_json);
+		
+		json::Array depth_readings = return_json["lidar"]["depth"];
+		
+		std::vector<double> converted_depth_readings;
+		
+		double scale = 115;
+		
+		for(auto & depth : depth_readings)
 		{
-			std::string run=pilot["cmd"]["run"];
-			std::string arg=pilot["cmd"]["arg"];
-
-			if (run.size()>0 && run.find_first_of("./\\\"")==std::string::npos) { // looks clean
-				cmd_arg=run+arg;
-				if (last_cmd_arg!=cmd_arg && !startup) { // new script command: run it
-
-					// std::string path="./"+run;
-					printf("RUNNING SCRIPT: '%s' with arg '%s'\n",
-						run.c_str(),arg.c_str());
-
-					if (fork()==0) {
-						if (chdir("script")!=0) {
-							printf("SCRIPT chdir FAILED\n");
-						}
-						else {
-							execl("logger","logger",run.c_str(),arg.c_str(),(char *)NULL);
-							perror("SCRIPT EXECUTE FAILED\n");
-						}
-						exit(0);
-					}
-				}
-			}
+			converted_depth_readings.push_back(depth.ToDouble() / scale);
 		}
-		startup=false;
-		last_cmd_arg=cmd_arg;
-
-#endif
-
-		if (sim) {
-			double distance_per_power=0.02; // meters per timestep
-			double wheelbase=0.3; // meters
-
-			if(pilot["power"].GetType()==json::ObjectVal&&pilot["power"]["L"].IsNumeric()&&pilot["power"]["R"].IsNumeric())
-			{
-				double delL=pilot["power"]["L"];
-				double delR=pilot["power"]["R"];
-
-				location.move_wheels(
-					delL*distance_per_power,
-					delR*distance_per_power,
-					wheelbase);
-			}
-		}
+		
+		map.update(robotLocation, converted_depth_readings);
+		
+		std::cout << depth_readings.size() << "\n";
 
 	} catch (std::exception &e) {
 
 		printf("Exception while processing network JSON: %s\n",e.what());
 		printf("   Network data: %ld bytes, '%s'\n", (long)read_json.size(),read_json.c_str());
 		// stop();
-	}*/
+	}
 }
 
 /** Get the sensor reports to send across the network */
@@ -272,6 +231,9 @@ slam_backend *backend=NULL; // the singleton robot
 
 int main(int argc, char *argv[])
 {
+	map = OccupancyGrid(80, 0.5, 0.6);
+	robotLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
+	
 	try
 	{
 		// MacOS runs double-clicked programs from homedir,  
@@ -304,8 +266,20 @@ int main(int argc, char *argv[])
 		while(true)
 		{
 			backend->do_network();
+			
+			for(std::size_t y = map.size(); y > 0; y--)
+			{
+				for(std::size_t x = 0; x < map.size(); x++)
+				{
+					int v = std::floor(10 * map(x, y-1));
+					if(v < 10) std::cout << v;
+					else std::cout << "A";
+				}
+				std::cout << "\n";
+			}
+			
 			//backend->send_serial();
-			moose_sleep_ms(to_int(config.get("delay_ms")));
+			moose_sleep_ms(1000);
 			//backend->read_serial();
 			
 			/*if((backend->_timeout)!=0)

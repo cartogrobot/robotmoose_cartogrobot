@@ -7,12 +7,15 @@
  * Probabilistic occupancy grid
 */
 
-		
-OccupancyGrid::OccupancyGrid(std::size_t size = 100, Probability p0 = 0.5):
-{
-	_l0 = std::log(p0 / (1-p0));
+#include "occupancy_grid.h"
 
-	_grid = std::vector<std::vector<Probability>>(size);
+OccupancyGrid::OccupancyGrid(std::size_t size, Probability p0, Probability s)
+{
+	_l0 = std::log(p0 / (1 - p0));
+	_lOcc = std::log(0.9 / (0.1));
+	_lFree = std::log((0.4) / 0.6);		// Just guessing here, might want to change
+	
+	_grid = std::vector<std::vector<Probability> >(size);
 	
 	for(auto & row : _grid)
 	{
@@ -20,64 +23,109 @@ OccupancyGrid::OccupancyGrid(std::size_t size = 100, Probability p0 = 0.5):
 		
 		for(auto & cell : row)
 		{
-			cell = initial_probability;
+			cell = _l0;
 		}
 	}
 }
 
-Probability OccupancyGrid::update(MapLocation xt, const vector<PolarCoords> & zt)
+OccupancyGrid::Probability OccupancyGrid::operator()(std::size_t x, std::size_t y) const
 {
-	for(const auto & point : zt)
+	return 1.0 - 1.0 / (1.0 + std::exp(_grid[y][x]));
+}
+
+std::size_t OccupancyGrid::size() const
+{
+	return _grid.size();
+}
+
+void OccupancyGrid::update(const MapLocation & xt, const std::vector<double> & zt)
+{
+	Angle angle = 0.0;
+	Angle delta = 2.0 * M_PI / zt.size();	
+	
+	for(std::size_t i = 0; i < zt.size(); i++)
 	{
-		rangeSensorUpdate(xt, MapLocation(zt, xt));
+		rangeSensorUpdate(xt, MapLocation(xt, zt[i], angle));
+		angle += delta;
 	}
 }
 
-void OccupancyGrid::rangeSensorUpdate(const MapLocation & xt, const MapLocation & zt)
+void OccupancyGrid::rangeSensorUpdate(const MapLocation & begin, const MapLocation & end)
 {
-	std::size_t x0 = (std::size_t) xt.getX();
-	std::size_t y0 = (std::size_t) xt.getY();
-	std::size_t x1 = (std::size_t) zt.getX();
-	std::size_t y1 = (std::size_t) zt.getY();
+	double x0 = begin.getX();
+	double y0 = begin.getY(); 
+	
+	double x1 = end.getX();
+	double y1 = end.getY();
+	
+	double dx = fabs(x1 - x0);
+    double dy = fabs(y1 - y0);
 
-	std::size_t dx = std::abs(x1 - x0);
-    std::size_t dy = std::abs(y1 - y0);
-    std::size_t x = x0;
-    std::size_t y = y0;
-    std::size_t n = 1 + dx + dy;
-    int x_inc = (x1 > x0) ? 1 : -1;
-    int y_inc = (y1 > y0) ? 1 : -1;
-    int error = dx - dy;
-    dx *= 2;
-    dy *= 2;
+    int x = int(floor(x0));
+    int y = int(floor(y0));
+
+    int n = 1;
+    int x_inc, y_inc;
+    double error;
+
+    if (dx == 0)
+    {
+        x_inc = 0;
+        error = std::numeric_limits<double>::infinity();
+    }
+    else if (x1 > x0)
+    {
+        x_inc = 1;
+        n += int(floor(x1)) - x;
+        error = (floor(x0) + 1 - x0) * dy;
+    }
+    else
+    {
+        x_inc = -1;
+        n += x - int(floor(x1));
+        error = (x0 - floor(x0)) * dy;
+    }
+
+    if (dy == 0)
+    {
+        y_inc = 0;
+        error -= std::numeric_limits<double>::infinity();
+    }
+    else if (y1 > y0)
+    {
+        y_inc = 1;
+        n += int(floor(y1)) - y;
+        error -= (floor(y0) + 1 - y0) * dx;
+    }
+    else
+    {
+        y_inc = -1;
+        n += y - int(floor(y1));
+        error -= (y0 - floor(y0)) * dx;
+    }
 
     for (; n > 0; --n)
     {
-    	// Update the probability of each grid square hit
-        _grid[y][x] = _grid[y][x] + inverseRangeSensorModel(x, y, xt, zt) + _l0;
+    	if(n > 1)
+    	{
+    		// Saw through this square, not occupied
+    		_grid[y][x] += _lFree - _l0;
+    	}
+        else
+        {
+        	// Object detected in this square, occupied
+        	_grid[y][x] += _lOcc - _l0;
+        }
 
         if (error > 0)
         {
-            x += x_inc;
-            error -= dy;
+            y += y_inc;
+            error -= dx;
         }
         else
         {
-            y += y_inc;
-            error += dx;
+            x += x_inc;
+            error += dy;
         }
     }
-}
-
-Probability OccupancyGrid::inverseRangeSensorModel(std::size_t x, std::size_t y,
-	const MapLocatin & xt, const MapLocation & zt)
-{
-	if(inSquare(zt.getX(), zt.getY(), x, y))
-	{
-		return _lOcc;
-	}
-	else
-	{
-		return _lFree;
-	}
 }

@@ -11,6 +11,7 @@
 #define __OCCUPANCY_GRID_H
 
 #include <vector>
+#include <limits>
 #include "location.h"
 
 
@@ -19,20 +20,22 @@ class OccupancyGrid
 	public:
 		typedef double Probability;
 		
-		OccupancyGrid(std::size_t size = 100, Probability p0 = 0.5);
+		OccupancyGrid(std::size_t size = 100, Probability p0 = 0.5, Probability s = 0.6);
 		
-		Probability update(MapLocation xt, vector<PolarCoords> zt);
+		void update(const MapLocation & xt, const std::vector<double> & zt);
 		
-		void rangeSensorUpdate(const PolarCoords & point);
+		Probability operator()(std::size_t x, std::size_t y) const;
 		
-		Probability inverseRangeSensorModel(std::size_t x, std::size_t y,
-			const MapLocation & xt, const MapLocation & zt);
-			
-		bool inSquare(double x, double y, std::size_t x, std:: size_t y);
+		std::size_t size() const;
 	
 	private:
+		void rangeSensorUpdate(const MapLocation & begin, const MapLocation & end);
+	
 		Probability _l0;
+		
 		std::vector<std::vector<Probability>> _grid;
-}
+		
+		Probability _lOcc, _lFree;
+};
 
 #endif

@@ -1215,7 +1215,7 @@ int main(int argc, char *argv[])
 			backend->read_serial();
 		}
 
-		//Never gets called...
+		//Never gets called..
 		/*if(config.get("marker")!="")
 		{
 			backend->location.update_vision(config.get("marker").c_str());

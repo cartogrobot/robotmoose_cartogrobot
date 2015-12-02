@@ -15,10 +15,10 @@
 #include "angle.h"
 
 // Polar coordinates for a point
-class PolarCoordinates{
+/*class PolarCoordinates{
     double _r;
     Angle _angle;
-};
+};*/
 
 // Stores a point as cartesian coordinates and a normal vector as angle
 class MapLocation {
@@ -31,10 +31,10 @@ public:
     MapLocation(double x, double y, const Angle & angle);
     
     // Constructs MapPoint from local polar coordinates and MapPoint for their origin
-    MapLocation(const PolarCoordinates & polarCoords);
+    MapLocation(double r, const Angle & angle);
     
     // Constructs MapPoint from local polar coordinates and MapPoint for their origin
-    MapLocation(const PolarCoordinates & polarCoords, const MapLocation & location);
+    MapLocation(const MapLocation & location, double r, const Angle & angle);
     
     // Accessor for x coordinate
     double getX() const;
