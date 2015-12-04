@@ -18,4 +18,4 @@ cartogrobot: cartogrobot.cpp
 	$(CXX) $(CFLAGS) $< -o $@ $(LIBS) 
 
 clean:
-	- rm -rf backend backend.exe
+	- rm -rf cartogrobot cartogrobot.exe

@@ -20,7 +20,7 @@ class OccupancyGrid
 	public:
 		typedef double Probability;
 		
-		OccupancyGrid(std::size_t size = 100, Probability p0 = 0.5, Probability s = 0.6);
+		OccupancyGrid(std::size_t size = 100, Probability p0 = 0.5, Probability pfree = 0.4, Probability pOcc = 0.8);
 		
 		void update(const MapLocation & xt, const std::vector<double> & zt);
 		

@@ -9,11 +9,11 @@
 
 #include "occupancy_grid.h"
 
-OccupancyGrid::OccupancyGrid(std::size_t size, Probability p0, Probability s)
+OccupancyGrid::OccupancyGrid(std::size_t size, Probability p0, Probability pFree, Probability pOcc)
 {
 	_l0 = std::log(p0 / (1 - p0));
-	_lOcc = std::log(0.9 / (0.1));
-	_lFree = std::log((0.4) / 0.6);		// Just guessing here, might want to change
+	_lOcc = std::log(pOcc / (1 - pOcc));
+	_lFree = std::log(pFree / (1 - pFree));		// Just guessing here, might want to change
 	
 	_grid = std::vector<std::vector<Probability> >(size);
 	
@@ -30,7 +30,7 @@ OccupancyGrid::OccupancyGrid(std::size_t size, Probability p0, Probability s)
 
 OccupancyGrid::Probability OccupancyGrid::operator()(std::size_t x, std::size_t y) const
 {
-	return 1.0 - 1.0 / (1.0 + std::exp(_grid[y][x]));
+	return 1.0 - 1.0 / (1.0 + std::exp(_grid[x][y]));
 }
 
 std::size_t OccupancyGrid::size() const
@@ -45,8 +45,9 @@ void OccupancyGrid::update(const MapLocation & xt, const std::vector<double> & z
 	
 	for(std::size_t i = 0; i < zt.size(); i++)
 	{
+		if(zt[i] == 0.0) continue;
 		rangeSensorUpdate(xt, MapLocation(xt, zt[i], angle));
-		angle += delta;
+		angle -= delta;
 	}
 }
 
@@ -109,12 +110,12 @@ void OccupancyGrid::rangeSensorUpdate(const MapLocation & begin, const MapLocati
     	if(n > 1)
     	{
     		// Saw through this square, not occupied
-    		_grid[y][x] += _lFree - _l0;
+    		_grid[x][y] += _lFree - _l0;
     	}
         else
         {
         	// Object detected in this square, occupied
-        	_grid[y][x] += _lOcc - _l0;
+        	_grid[x][y] += _lOcc - _l0;
         }
 
         if (error > 0)

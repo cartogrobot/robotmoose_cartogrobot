@@ -175,7 +175,7 @@ void slam_backend::do_network()
 }
 
 OccupancyGrid map;
-MapLocation robotLocation;
+MapLocation baseLocation;
 
 /** Read this pilot data from superstar, and store into ourselves */
 void slam_backend::read_network(const std::string &read_json)
@@ -184,17 +184,24 @@ void slam_backend::read_network(const std::string &read_json)
 		json::Object return_json=json::Deserialize(read_json);
 		
 		json::Array depth_readings = return_json["lidar"]["depth"];
+		json::Object location = return_json["location"];
+		
+		double scale = 100;
+		
+		double x = location["x"].ToDouble() * 1000.0 / scale;
+		double y = location["y"].ToDouble() * 1000.0 / scale;
+		double angle = location["angle"].ToDouble() / 180.0 * M_PI;
+		
+		MapLocation newLoc(x, y, angle);
 		
 		std::vector<double> converted_depth_readings;
-		
-		double scale = 115;
 		
 		for(auto & depth : depth_readings)
 		{
 			converted_depth_readings.push_back(depth.ToDouble() / scale);
 		}
 		
-		map.update(robotLocation, converted_depth_readings);
+		map.update(baseLocation + newLoc, converted_depth_readings);
 		
 		std::cout << depth_readings.size() << "\n";
 
@@ -231,8 +238,8 @@ slam_backend *backend=NULL; // the singleton robot
 
 int main(int argc, char *argv[])
 {
-	map = OccupancyGrid(80, 0.5, 0.6);
-	robotLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
+	map = OccupancyGrid(150, 0.5, 0.45, 0.8);
+	baseLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	
 	try
 	{
@@ -274,6 +281,7 @@ int main(int argc, char *argv[])
 					int v = std::floor(10 * map(x, y-1));
 					if(v < 10) std::cout << v;
 					else std::cout << "A";
+					std::cout << " ";
 				}
 				std::cout << "\n";
 			}
