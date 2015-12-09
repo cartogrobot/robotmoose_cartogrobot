@@ -238,7 +238,7 @@ slam_backend *backend=NULL; // the singleton robot
 
 int main(int argc, char *argv[])
 {
-	map = OccupancyGrid(150, 0.5, 0.45, 0.8);
+	map = OccupancyGrid(120, 0.5, 0.45, 0.8);
 	baseLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	
 	try
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
 			}
 			
 			//backend->send_serial();
-			moose_sleep_ms(1000);
+			moose_sleep_ms(100);	//delay
 			//backend->read_serial();
 			
 			/*if((backend->_timeout)!=0)
