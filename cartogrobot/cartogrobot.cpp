@@ -187,7 +187,7 @@ void slam_backend::do_network()
 	double elapsed=time_in_seconds()-start;
 	double per=elapsed;
 	//std::cout<<"Superstar:	"<<std::setprecision(1)<<per*1.0e3<<" ms/request, "<<1.0/per<<" req/sec\n\n";
-	std::cout << "x: " << robotLocation.getX() << ", y: " << robotLocation.getY() << "\n";
+	//std::cout << "x: " << robotLocation.getX() << ", y: " << robotLocation.getY() << "\n";
 	std::cout.flush();
 }
 
@@ -200,7 +200,7 @@ void slam_backend::read_network(const std::string &read_json)
 		json::Array depth_readings = return_json["lidar"]["depth"];
 		json::Object location = return_json["location"];
 		
-		double scale = 10;
+		double scale = 100;
 		
 		double x = location["x"].ToDouble() * 1000.0 / scale;
 		double y = location["y"].ToDouble() * 1000.0 / scale;
@@ -402,7 +402,7 @@ void init()
 
 int main(int argc, char *argv[])
 {
-	map = OccupancyGrid(1200, 0.5, 0.45, 0.8);
+	map = OccupancyGrid(300, 0.5, 0.45, 0.8);
 	baseLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	robotLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	

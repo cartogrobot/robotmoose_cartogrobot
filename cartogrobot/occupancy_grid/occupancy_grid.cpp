@@ -45,10 +45,16 @@ void OccupancyGrid::update(const MapLocation & xt, const std::vector<double> & z
 	
 	for(std::size_t i = 0; i < zt.size(); i++)
 	{
-		if(zt[i] == 0.0) continue;
+		//std::cout << angle << ", ";
+		if(zt[i] == 0.0)
+		{
+			angle -= delta;
+			continue;
+		}
 		rangeSensorUpdate(xt, MapLocation(xt, zt[i], angle));
 		angle -= delta;
 	}
+	//std::cout << "\n";
 }
 
 void OccupancyGrid::rangeSensorUpdate(const MapLocation & begin, const MapLocation & end)
