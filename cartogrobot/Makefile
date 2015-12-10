@@ -1,6 +1,6 @@
 CXX=g++
 OPTS=-O
-CFLAGS=$(OPTS) -Wall -std=c++1y
+CFLAGS=$(OPTS) -Wall -lGL -lGLU -lglut -lGLEW -std=c++1y
 LIBS=
 
 ifeq ($(OS),Windows_NT)
@@ -15,7 +15,7 @@ endif
 all: cartogrobot
 
 cartogrobot: cartogrobot.cpp
-	$(CXX) $(CFLAGS) $< -o $@ $(LIBS) 
+	$(CXX) $(CFLAGS) $< -o $@ $(LIBS)
 
 clean:
-	- rm -rf cartogrobot cartogrobot.exe
+	- rm -rf cartogrobot cartogrobot.exe visualize visualize.exe

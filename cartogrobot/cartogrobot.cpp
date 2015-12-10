@@ -53,6 +53,18 @@
 #include "occupancy_grid/location.cpp"
 #include "occupancy_grid/angle.cpp"
 
+//OpenGL and GLUT includes
+#include <cstdlib>
+using std::exit;
+#ifndef __APPLE__
+# include <GL/glut.h>
+#else
+# include <GLUT/glut.h>
+#endif
+
+//Extra includes
+#include "lib381/bitmapprinter.h"
+
 #ifndef M_PI
 # define M_PI 3.1415926535897
 #endif
@@ -73,6 +85,10 @@ void clean_exit(const char *why) {
 	fprintf(stderr,"Backend exiting: %s\n",why);
 	exit(1);
 }
+
+OccupancyGrid map;
+MapLocation baseLocation;
+MapLocation robotLocation;
 
 /**
   Read commands from superstar, and send them to the robot.
@@ -154,28 +170,26 @@ void slam_backend::do_network()
 {
 	double start=time_in_seconds();
 
-	std::cout << "\033[2J\033[1;1H"; // clear screen	
-	std::cout<<"Robot name: "<<robotName<<"\n";
+	//std::cout << "\033[2J\033[1;1H"; // clear screen	
+	//std::cout<<"Robot name: "<<robotName<<"\n";
 
 	std::string send_json=send_network();
-	std::cout<<"Outgoing sensors: "<<send_json<<"\n";
+	//std::cout<<"Outgoing sensors: "<<send_json<<"\n";
 
 	std::string read_path=robotName+"/sensors";
 	//std::string send_path=robotName+"/pilot,"+robotName+"/config";
 	//std::string request=send_path+"?set="+send_json+"&get="+read_path;
 	std::string read_json=superstar_send_get("/superstar/"+read_path+"?get");	//+request);
 
-	std::cout<<"Incoming pilot commands: "<<read_json<<"\n";
+	//std::cout<<"Incoming pilot commands: "<<read_json<<"\n";
 	read_network(read_json);
 
 	double elapsed=time_in_seconds()-start;
 	double per=elapsed;
-	std::cout<<"Superstar:	"<<std::setprecision(1)<<per*1.0e3<<" ms/request, "<<1.0/per<<" req/sec\n\n";
+	//std::cout<<"Superstar:	"<<std::setprecision(1)<<per*1.0e3<<" ms/request, "<<1.0/per<<" req/sec\n\n";
+	std::cout << "x: " << robotLocation.getX() << ", y: " << robotLocation.getY() << "\n";
 	std::cout.flush();
 }
-
-OccupancyGrid map;
-MapLocation baseLocation;
 
 /** Read this pilot data from superstar, and store into ourselves */
 void slam_backend::read_network(const std::string &read_json)
@@ -186,13 +200,13 @@ void slam_backend::read_network(const std::string &read_json)
 		json::Array depth_readings = return_json["lidar"]["depth"];
 		json::Object location = return_json["location"];
 		
-		double scale = 100;
+		double scale = 10;
 		
 		double x = location["x"].ToDouble() * 1000.0 / scale;
 		double y = location["y"].ToDouble() * 1000.0 / scale;
-		double angle = location["angle"].ToDouble() / 180.0 * M_PI;
+		double angle(location["angle"].ToDouble() / 180.0 * M_PI);
 		
-		MapLocation newLoc(x, y, angle);
+		robotLocation = baseLocation + MapLocation(x, y, angle);
 		
 		std::vector<double> converted_depth_readings;
 		
@@ -201,9 +215,9 @@ void slam_backend::read_network(const std::string &read_json)
 			converted_depth_readings.push_back(depth.ToDouble() / scale);
 		}
 		
-		map.update(baseLocation + newLoc, converted_depth_readings);
+		map.update(robotLocation, converted_depth_readings);
 		
-		std::cout << depth_readings.size() << "\n";
+		//std::cout << depth_readings.size() << "\n";
 
 	} catch (std::exception &e) {
 
@@ -236,10 +250,161 @@ std::string slam_backend::send_network(void)
 
 slam_backend *backend=NULL; // the singleton robot
 
+/* GRAPHICS */
+
+//globals
+//keyboard
+const int ESCKEY = 27;         // ASCII value of Escape
+
+//window settings
+const int startwinsize = 1000;  // Start window width & height (pixels)
+
+//objects
+double savetime;               // Time of previous movement (sec)
+
+//draws a filled square
+void drawGrid(const OccupancyGrid & map)
+{
+	glPushMatrix();
+    glBegin(GL_QUADS);
+   	for(std::size_t y = map.size(); y > 0; y--)
+	{
+		for(std::size_t x = 0; x < map.size(); x++)
+		{
+			double weight = 1.0 - map(x,y-1);
+			glColor3f(weight, weight, weight);
+			glVertex2d(-1.0 + x, -1.0 + y);
+		    glVertex2d( 1.0 + x, -1.0 + y);
+		    glVertex2d( 1.0 + x,  1.0 + y);
+		    glVertex2d(-1.0 + x,  1.0 + y);
+		}
+	}
+    glEnd();
+    glPopMatrix();
+}
+
+void drawRobot(const MapLocation & robot)
+{
+	glPushMatrix();
+	double x = robot.getX();
+	double y = robot.getY();
+	glTranslated(x, y, 0.0);
+	glRotated(robot.getAngle()*180/M_PI, 0.0,0.0,1.0);
+    glBegin(GL_TRIANGLES);
+		glColor3f(0.4, 0.1, 0.0);
+		glVertex2d(3.0, 0.0);
+		glVertex2d(-3.0, 1.5);
+		glVertex2d(-3.0,  -1.5);
+    glEnd();
+    glPopMatrix();
+}
+
+
+// myDisplay
+// The GLUT display function
+void myDisplay()
+{
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Draw objects
+    // Initial transformation
+    glLoadIdentity();
+
+    //hollow square
+    glPushMatrix();
+    glTranslated(-1.0, -1.0, 0.);
+    glScaled(2.0/(double)map.size(), 2.0/(double)map.size(), 1.0);
+    drawGrid(map);
+    drawRobot(robotLocation);
+    glPopMatrix();
+
+    // Draw documentation
+    glLoadIdentity();
+    glMatrixMode(GL_PROJECTION);  // Set up simple ortho projection
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(-1., 1., -1., 1.);
+    glColor3d(1., 1., 1.);        // Black text
+    BitmapPrinter p(-0.9, 0.9, 0.1);
+    p.print("Esc      Quit");
+    glPopMatrix();                // Restore prev projection
+    glMatrixMode(GL_MODELVIEW);
+
+    glutSwapBuffers();
+}
+
+
+//idle function
+void myIdle()
+{
+    //timing
+    double currtime = glutGet(GLUT_ELAPSED_TIME) / 1000.;
+    double elapsedtime = currtime - savetime;
+
+	if(elapsedtime > 1.0)
+	{
+		savetime = currtime;
+		// Pull network and redisplay
+		backend->do_network();
+		glutPostRedisplay();
+	}
+}
+
+
+//GLUT keyboard function
+void myKeyboard(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case ESCKEY:  //esc: quit
+        exit(0);
+        break;
+    }
+}
+
+
+//initialize GL states and global data
+void init()
+{
+	//init opengl
+	int i = 0;
+	char * c = "hi";
+    glutInit(&i,&c);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+
+    //generate window
+    glutInitWindowSize(startwinsize, startwinsize);
+    glutInitWindowPosition(50, 50);
+    glutCreateWindow("Robot Mapping");	
+	
+    //timing
+    savetime = glutGet(GLUT_ELAPSED_TIME) / 1000.;
+
+    //transformation stuff
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(-1., 1., -1., 1.);
+
+    //return to model/view mode
+    glMatrixMode(GL_MODELVIEW);
+    
+    glutDisplayFunc(myDisplay);
+    glutIdleFunc(myIdle);
+    glutKeyboardFunc(myKeyboard);
+
+    //the loop
+    glutMainLoop();
+}
+
+/* MAIN */
+
+
 int main(int argc, char *argv[])
 {
-	map = OccupancyGrid(120, 0.5, 0.45, 0.8);
+	map = OccupancyGrid(1200, 0.5, 0.45, 0.8);
 	baseLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
+	robotLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	
 	try
 	{
@@ -266,11 +431,13 @@ int main(int argc, char *argv[])
 
 		backend=new slam_backend(config.get("superstar"),config.get("robot"));
 		
+		init();	// Initialize GUI
+		
 		// Manually configuring Arduino (not via web) is a bad idea...
 		//backend->tabula_setup(config.get("sensors")+"\n"+config.get("motors"));
 
 		// talk to robot via backend
-		while(true)
+		/*while(true)
 		{
 			backend->do_network();
 			
@@ -288,14 +455,14 @@ int main(int argc, char *argv[])
 			
 			//backend->send_serial();
 			moose_sleep_ms(100);	//delay
-			//backend->read_serial();
+			//backend->read_serial();*/
 			
 			/*if((backend->_timeout)!=0)
 			{	
 				std::cout<<"Disconnected"<<std::endl;
 				backend->reconnect(config.get("sensors")+"\n"+config.get("motors"),Serial);
-			}*/
-		}
+			}
+		}*/
 		
 		if(config.get("marker")!="")
 		{
