@@ -108,18 +108,26 @@ void OccupancyGrid::rangeSensorUpdate(const MapLocation & begin, const MapLocati
         n += y - int(floor(y1));
         error -= (y0 - floor(y0)) * dx;
     }
+    
+    int maxn = n;
 
     for (; n > 0; --n)
     {
     	if(n > 1)
     	{
-    		// Saw through this square, not occupied
-    		_grid[x][y] += _lFree - _l0;
+    		if(y > 0 && y < size() && x > 0 && x < size())
+    		{
+				// Saw through this square, not occupied
+				_grid[x][y] += _lFree*(size())/(8*(size()+maxn-n)) - _l0;
+			}
     	}
         else
         {
-        	// Object detected in this square, occupied
-        	_grid[x][y] += _lOcc - _l0;
+        	if(y > 0 && y < size() && x > 0 && x < size())
+    		{
+		    	// Object detected in this square, occupied
+		    	_grid[x][y] += _lOcc*(size())/(8*(size()+maxn-n)) - _l0;
+	    	}
         }
 
         if (error > 0)

@@ -200,22 +200,26 @@ void slam_backend::read_network(const std::string &read_json)
 		json::Array depth_readings = return_json["lidar"]["depth"];
 		json::Object location = return_json["location"];
 		
-		double scale = 100;
+		double scale = 50;
 		
 		double x = location["x"].ToDouble() * 1000.0 / scale;
 		double y = location["y"].ToDouble() * 1000.0 / scale;
 		double angle(location["angle"].ToDouble() / 180.0 * M_PI);
 		
-		robotLocation = baseLocation + MapLocation(x, y, angle);
+		MapLocation newLocation = baseLocation + MapLocation(x, y, angle);
 		
-		std::vector<double> converted_depth_readings;
+		if(std::abs(newLocation.getAngle() - robotLocation.getAngle()) < 0.005){
+			std::vector<double> converted_depth_readings;
 		
-		for(auto & depth : depth_readings)
-		{
-			converted_depth_readings.push_back(depth.ToDouble() / scale);
+			for(auto & depth : depth_readings)
+			{
+				converted_depth_readings.push_back(depth.ToDouble() / scale);
+			}
+		
+			map.update(newLocation, converted_depth_readings);
 		}
 		
-		map.update(robotLocation, converted_depth_readings);
+		robotLocation = newLocation;
 		
 		//std::cout << depth_readings.size() << "\n";
 
@@ -258,6 +262,8 @@ const int ESCKEY = 27;         // ASCII value of Escape
 
 //window settings
 const int startwinsize = 1000;  // Start window width & height (pixels)
+
+const int pulls_per_second = 5;
 
 //objects
 double savetime;               // Time of previous movement (sec)
@@ -342,7 +348,7 @@ void myIdle()
     double currtime = glutGet(GLUT_ELAPSED_TIME) / 1000.;
     double elapsedtime = currtime - savetime;
 
-	if(elapsedtime > 1.0)
+	if(elapsedtime > 1.0/pulls_per_second)
 	{
 		savetime = currtime;
 		// Pull network and redisplay
@@ -399,10 +405,9 @@ void init()
 
 /* MAIN */
 
-
 int main(int argc, char *argv[])
 {
-	map = OccupancyGrid(300, 0.5, 0.45, 0.8);
+	map = OccupancyGrid(300, 0.5, 0.4, 0.8);
 	baseLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	robotLocation = MapLocation(map.size()/2, map.size()/2, 0.0);
 	
